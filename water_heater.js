@@ -6,8 +6,8 @@
 
 const url = "https://api.awattar.at/v1/marketdata";
 const period = 3;
-const defaultstart = "0 1 9 * * SUN,MON,TUE,WED,THU,FRI,SAT";
-const defaultend = "0 1 11 * * SUN,MON,TUE,WED,THU,FRI,SAT";
+const defaultstart = "0 1 12 * * SUN,MON,TUE,WED,THU,FRI,SAT";
+const defaultend = "0 1 15 * * SUN,MON,TUE,WED,THU,FRI,SAT";
 const max_avg_price = 999999;   // Eur/MWh above which the heater will not turn on, set to high value to always on
 
 // Random schedule around 18:00
@@ -95,7 +95,7 @@ function findCheapestPeriod(rows, period) {
 function find_cheapest(result) {
     Timer.clear(keepAlive);
 
-    if (result === null || result.code !== 200) {
+    if (result || result.code !== 200) {
         print("=== HTTP request failed, using default schedule ===");
         updateSchedules(defaultstart, defaultend, true);
         return;
@@ -122,7 +122,7 @@ function find_cheapest(result) {
     let endHour = rows[minIndex + period].cet_hour;
     let avgPrice = minSum / period;
 
-    print("=== Cheapest start hour: ", startHour, " end hour: ", endHour, " avg price: ", avgPrice, " ===");
+    print("=== Cheapest start hour: ", startHour, " end hour: ", endHour, " avg price: ", avgPrice.toFixed(2), "Eur/MWh ===");
 
     let timespec = "0 0 " + JSON.stringify(startHour) + " * * SUN,MON,TUE,WED,THU,FRI,SAT";
     let offspec = "0 0 " + JSON.stringify(endHour) + " * * SUN,MON,TUE,WED,THU,FRI,SAT";
