@@ -19,11 +19,6 @@ let script_number = Shelly.getCurrentScriptId();
 
 // Read timezone offset ONCE at startup
 let timezoneOffset = 3600; // fallback: UTC+1
-let sys = Shelly.getComponentStatus("sys");
-if (sys && sys.offset) {
-    timezoneOffset = sys.offset;
-}
-print("=== Timezone offset: ", timezoneOffset, " ===");
 
 // Keep-alive timer
 let keepAlive = Timer.set(90 * 1000, false, function () {
@@ -33,6 +28,27 @@ let keepAlive = Timer.set(90 * 1000, false, function () {
 
 
 // --- FUNCTIONS ---
+
+function getTimezoneOffsetInSeconds() {
+  // get current date and time
+  const now = new Date();
+  const str = now.toString();
+
+  let offset = null;
+
+  for (let i = 0; i < str.length; i++) {
+    if ((str[i] === '+' || str[i] === '-') && i + 4 < str.length) {
+      const sign = str[i] === '+' ? 1 : -1;
+      const numStrHour = str.slice(i + 0, i + 3);
+      const numStrMinute = str.slice(i + 3, i + 5);
+      const hour = parseInt(numStrHour, 10);
+      const minute = parseInt(numStrMinute, 10);
+      offset = hour * 3600 + minute * 60 * sign;
+      break;
+    }
+  }
+  return offset;
+}
 
 function normalizeUnixTimestamp(ts) {
     ts = Number(ts);
@@ -95,7 +111,7 @@ function findCheapestPeriod(rows, period) {
 function find_cheapest(result) {
     Timer.clear(keepAlive);
 
-    if (result || result.code !== 200) {
+    if (!result || result.code !== 200) {
         print("=== HTTP request failed, using default schedule ===");
         updateSchedules(defaultstart, defaultend, true);
         return;
@@ -170,5 +186,12 @@ function updateTimer() {
     print("=== Fetching current price ===");
     Shelly.call("HTTP.GET", { url: url, timeout: 60, ssl_ca: "*" }, find_cheapest);
 }
+
+// Read timezone offset ONCE at startup
+let offset = getTimezoneOffsetInSeconds();
+if (offset !== null) {
+    timezoneOffset = offset;
+}
+print("=== Timezone offset: ", timezoneOffset, " ===");
 
 updateTimer();
