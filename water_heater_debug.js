@@ -19,19 +19,18 @@ let minrand = JSON.stringify(Math.floor(Math.random() * 15));
 let secrand = JSON.stringify(Math.floor(Math.random() * 60));
 let script_schedule = secrand + " " + minrand + " 18 * * SUN,MON,TUE,WED,THU,FRI,SAT";
 
-let script_number = Shelly.getCurrentScriptId();
-
 // Read timezone offset ONCE at startup
 let timezoneOffset = 3600; // fallback: UTC+1
-
-// Keep-alive timer
-let keepAlive = Timer.set(90 * 1000, false, function () {
-    print("=== Timeout waiting for HTTP response, using defaults ===");
-    updateSchedules(defaultstart, defaultend, true);
-});
+let offset = getTimezoneOffsetInSeconds();
+if (offset !== null) {
+    timezoneOffset = offset;
+}
+console.log("=== Timezone offset: ", timezoneOffset, " ===");
+console.log("=== SNAP SUMMER: ", SUMMER, " ===");
 
 
 // --- FUNCTIONS ---
+
 /**
  * Get timezone offset from current date and time.
  * Sets SUMMER flag for SNAP prices.
@@ -125,7 +124,7 @@ function normalizeUnixTimestamp(ts) {
 function findCheapestPeriod(rows, period) {
     let len = rows.length;
     if (len < period) {
-        print("=== Not enough data to find a ", period, "-hour period ===");
+        console.log("=== Not enough data to find a ", period, "-hour period ===");
         return null;
     }
 
@@ -152,25 +151,25 @@ function findCheapestPeriod(rows, period) {
 }
 
 function find_cheapest(result) {
-    Timer.clear(keepAlive);
+    //Timer.clear(keepAlive);
 
     if (!result || result.code !== 200) {
-        print("=== HTTP request failed, using default schedule ===");
+        console.log("=== HTTP request failed, using default schedule ===");
         updateSchedules(defaultstart, defaultend, true);
         return;
     }
 
-    print("=== HTTP response received, finding cheapest hours ===");
+    console.log("=== HTTP response received, finding cheapest hours ===");
 
     let data = JSON.parse(result.body);
     let rows = toRowArray(data);
 
-    print("=== Rows found: ", rows.length, " ===");
+    console.log("=== Rows found: ", rows.length, " ===");
 
     let cheapest = findCheapestPeriod(rows, period);
 
     if (!cheapest || rows.length === 0) {
-        print("=== Not enough data, using default schedule ===");
+        console.log("=== Not enough data, using default schedule ===");
         updateSchedules(defaultstart, defaultend, true);
         return;
     }
@@ -181,14 +180,14 @@ function find_cheapest(result) {
     let endHour = rows[minIndex + period].cet_hour;
     let avgPrice = minSum / period;
 
-    print("=== Cheapest start hour: ", startHour, " end hour: ", endHour, " avg price: ", avgPrice.toFixed(2), "Eur/MWh ===");
+    console.log("=== Cheapest start hour: ", startHour, " end hour: ", endHour, " avg price: ", avgPrice.toFixed(2), "Eur/MWh ===");
 
     let timespec = "0 0 " + JSON.stringify(startHour) + " * * SUN,MON,TUE,WED,THU,FRI,SAT";
     let offspec = "0 0 " + JSON.stringify(endHour) + " * * SUN,MON,TUE,WED,THU,FRI,SAT";
 
     let turn_on = true;
     if (avgPrice > max_avg_price) {
-        print("=== Price too high, switch will not turn on ===");
+        console.log("=== Price too high, switch will not turn on ===");
         turn_on = false;
     }
 
@@ -196,46 +195,26 @@ function find_cheapest(result) {
 }
 
 function updateSchedules(timespec, offspec, turn_on) {
-    Shelly.call("Schedule.DeleteAll", {}, function () {
-
-        print("=== Turn on schedule: ", timespec, " ===");
-        Shelly.call("Schedule.Create", {
-            "id": 0, "enable": true, "timespec": timespec,
-            "calls": [{ "method": "Switch.Set", "params": { "id": 0, "on": turn_on } }]
-        }, function () {
-
-            print("=== Turn off schedule: ", offspec, " ===");
-            Shelly.call("Schedule.Create", {
-                "id": 0, "enable": true, "timespec": offspec,
-                "calls": [{ "method": "Switch.Set", "params": { "id": 0, "on": false } }]
-            }, function () {
-
-                print("=== Script schedule: ", script_schedule, " ===");
-                Shelly.call("Schedule.Create", {
-                    "id": 3, "enable": true, "timespec": script_schedule,
-                    "calls": [{ "method": "Script.start", "params": { "id": script_number } }]
-                }, function () {
-                    Timer.set(5 * 1000, false, function () {
-                        print("=== All schedules created, stopping script ===");
-                        Shelly.call("Script.stop", { "id": script_number });
-                    });
-                });
-            });
-        });
-    });
+    console.log("=== Turn on schedule: ", timespec, " ===");
+    console.log("=== Turn off schedule: ", offspec, " ===");
+    console.log("=== Script schedule: ", script_schedule, " ===");
+    console.log("=== All schedules created, stopping script ===");
 }
 
-function updateTimer() {
-    print("=== Fetching current price ===");
-    Shelly.call("HTTP.GET", { url: url, timeout: 60, ssl_ca: "*" }, find_cheapest);
+async function updateTimer() {
+    console.log("=== Fetching current price ===");
+
+    try {
+        const res = await fetch(url);
+        const body = await res.text();
+        find_cheapest({ code: res.status, body });
+    } catch (err) {
+        console.log("=== Fetch error, using default schedule ===", err);
+        updateSchedules(defaultstart, defaultend, true);
+    }
 }
 
-// Read timezone offset ONCE at startup
-let offset = getTimezoneOffsetInSeconds();
-if (offset !== null) {
-    timezoneOffset = offset;
-}
-print("=== Timezone offset: ", timezoneOffset, " ===");
-print("=== SNAP SUMMER: ", SUMMER, " ===");
 
-updateTimer();
+if (require.main === module) {
+  updateTimer();
+}
