@@ -107,6 +107,7 @@ function toRowArray(json) {
         result.push({
             cet_hour: cet_hour,
             marketprice: marketprice,
+            marketprice_raw: Number(v.marketprice)
         });
     }
     return result;
@@ -119,6 +120,17 @@ function normalizeUnixTimestamp(ts) {
     } else {
         return ts * 1000;
     }
+}
+
+function printArray(rows) {
+    let len = rows.length;
+    // print table
+    console.log("\n=== hourly_prices (table view) ===\n");
+    console.table(Object.entries(rows).map(([k,v]) => ({
+        Hour: v.cet_hour,
+        marketprice: v.marketprice,
+        marketprice_raw: v.marketprice_raw
+    })));
 }
 
 function findCheapestPeriod(rows, period) {
@@ -163,6 +175,7 @@ function find_cheapest(result) {
 
     let data = JSON.parse(result.body);
     let rows = toRowArray(data);
+    printArray(rows);
 
     console.log("=== Rows found: ", rows.length, " ===");
 
