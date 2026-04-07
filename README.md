@@ -31,6 +31,9 @@ Every evening at ~18:00
 Fetch hourly prices from aWATTar API
         │
         ▼
+Add grid cost according to month and hour
+        │
+        ▼
 Find cheapest N consecutive hours
         │
         ▼
@@ -67,6 +70,10 @@ At the top of the script, the following constants can be adjusted:
 | `defaultstart` | `"0 1 9 * * ..."` | Fallback ON time if API fetch fails (crontab) |
 | `defaultend` | `"0 1 11 * * ..."` | Fallback OFF time if API fetch fails (crontab) |
 | `max_avg_price` | `999999` | Maximum average price (EUR/MWh) to allow switch-on. Set lower to prevent running when prices are very high. |
+| `NNEG` | `51.7` | Grid cost per €/MWh |
+| `SNAP` | `41.4` | Reduced grid cost in €/MWh.The reduced price is valid from 10 to 16 o'clock, from April to including September. |
+| `PVP` | `0.0001` | PV production in MWh |
+| `SUMMER` | `false` | initial flag, will be set in `getTimezoneOffsetInSeconds()` |
 
 ### Price Units
 
@@ -77,20 +84,62 @@ Example: if you want to cap at 10 ct/kWh → use `100`.
 
 ## Timezone & Daylight Saving Time
 
-The aWATTar API returns timestamps in UTC. The script reads the **timezone offset directly from the Shelly device** at startup:
+The `Date()` returns timestamps. The `getTimezoneOffsetInSeconds` function gets the timestamp converts it to a string and reads the **timezone offset** and converts it to seconds.
 
 ```javascript
-let sys = Shelly.getComponentStatus("sys");
-timezoneOffset = sys.offset; // e.g. 3600 in winter, 7200 in summer
+const now = new Date();
+const str = now.toString();
+
+// check month for SNAP
+const month = now.getMonth(); // 0-11
+SUMMER = month >= 3 && month < 9 ? true : false;
+
+let offset = null;
+
+for (let i = 0; i < str.length; i++) {
+    if ((str[i] === '+' || str[i] === '-') && i + 4 < str.length) {
+        const sign = str[i] === '+' ? 1 : -1;
+        const numStrHour = str.slice(i + 0, i + 3);
+        const numStrMinute = str.slice(i + 3, i + 5);
+        const hour = parseInt(numStrHour, 10);
+        const minute = parseInt(numStrMinute, 10);
+        offset = hour * 3600 + minute * 60 * sign;
+        break;
+    }
+}
 ```
 
-This means DST is handled **automatically**, as long as the Shelly's timezone is set correctly in its settings. No manual adjustment is needed when clocks change.
+This means DST is handled **automatically**, as long as the Shelly's timezone is set correctly in its settings. No manual adjustment is needed when clocks change. Because the script sets the timers for the next day there is a offset of one hour at the day of the time change.
 
 ---
 
 ## Fallback Behavior
 
 If the API request fails (network error, timeout, or non-200 response), the script falls back to the default schedule defined by `defaultstart` and `defaultend`. This ensures the device still runs at a reasonable time even without internet access.
+
+---
+
+## Grid cost
+
+With the Summer Off-Peak Rate (SNAP), from April 1 to September 30, the grid fee will be automatically reduced (20%) daily between 10 a.m. and 4 p.m., provided you have a smart meter and have enabled the 15-minute billing interval (opt-in).
+The function `toRowArray` adds the grid cost if the `SUMMER` flag is true. The `SUMMER` flag is set by `getTimezoneOffsetInSeconds`. 
+
+```javascript
+function toRowArray(json) {
+    ...
+    let marketprice = SUMMER ? addSNAP(cet_hour, Number(v.marketprice)) : Number(v.marketprice);
+    ...
+```
+
+The function `addSNAP` adds the grid cost to the marketprice. According to the hour it adds the full grid costs NNEG or the reduced cost SNAP. PVP is estimated PV production. The estimated PV production is multiplied with the marketprice subtracted from the hourly sum. For simplification this is done together with the SNAP prices.
+
+```javascript
+function addSNAP(hour, marketprice) {
+    ...
+	const PVE = marketprice * PVP
+	return hour >= 10 && hour < 16 ? marketprice + SNAP - PVE : marketprice + NNEG;
+}
+```
 
 ---
 
@@ -145,6 +194,7 @@ The script prints status messages to the console at each step:
 
 ```
 === Timezone offset:  3600  ===
+=== SNAP SUMMER: true ===
 === Fetching current price ===
 === HTTP response received, finding cheapest hours ===
 === Rows found:  24  ===

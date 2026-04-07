@@ -8,9 +8,9 @@ const url = "https://api.awattar.at/v1/marketdata";
 const period = 3;
 const defaultstart = "0 1 12 * * SUN,MON,TUE,WED,THU,FRI,SAT";
 const defaultend = "0 1 15 * * SUN,MON,TUE,WED,THU,FRI,SAT";
-const max_avg_price = 999999;   // Eur/MWh above which the heater will not turn on, set to high value to always on
-const NNEG = 56;
-const SNAP = 44.8;
+const max_avg_price = 1000;     // Eur/MWh above which the heater will not turn on, set to high value to always on
+const NNEG = 51.7;  // Eur/MWh
+const SNAP = 41.4;  // Eur/MWh
 const PVP = 0.0001; // PV production in MWh
 let SUMMER = false; // initialization, will be set in getTimezoneOffsetInSeconds()
 
