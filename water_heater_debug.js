@@ -39,6 +39,8 @@ console.log("=== SNAP SUMMER: ", SUMMER, " ===");
 function getTimezoneOffsetInSeconds() {
   // get current date and time
   const now = new Date();
+  // get next day
+  now.setDate(now.getDate()+1);
   const str = now.toString();
 
   // check month for SNAP
