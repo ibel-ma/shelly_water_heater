@@ -13,6 +13,7 @@ const NNEG = 51.7;  // Eur/MWh
 const SNAP = 41.4;  // Eur/MWh
 const PVP = 0.0001; // PV production in MWh
 let SUMMER = false; // initialization, will be set in getTimezoneOffsetInSeconds()
+const DST = true;   // flag to activate check for time change
 
 // Random schedule around 18:00
 let minrand = JSON.stringify(Math.floor(Math.random() * 15));
@@ -32,6 +33,47 @@ let keepAlive = Timer.set(90 * 1000, false, function () {
 
 
 // --- FUNCTIONS ---
+
+/**
+ * Calculates next day and checks if it is the last Sunday of March or October
+ * Returns +1 for last Sunday of March. Return -1 for last Sunday of October.
+ * Returns 0 for every other date.
+ * 
+ * @returns {number}  +1, 0, -1
+ */
+function isLastSundayInMarchOrOctober(date) {
+  // next day
+  const year = date.getFullYear();
+  const month = date.getMonth();  // 0 = Jan, 2 = March, 9 = October
+  const day = date.getDate()+1;   // next day
+
+  // Only March or October are relevant
+  if (month !== 2 && month !== 9) {
+    return 0;
+  }
+
+  // Get the last day of the month
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+
+  // Move back to the last Sunday
+  const lastSunday = new Date(year, month, (lastDayOfMonth.getDate() - lastDayOfMonth.getDay()));
+
+  // Compare calendar dates (ignore time)
+  if (
+        !(year === lastSunday.getFullYear() &&
+          month === lastSunday.getMonth() &&
+          day === lastSunday.getDate())
+  ) { 
+    return 0;
+  }
+  print("=== Tomorrow is time change ===")
+  if (month === 2) {
+    return +1;
+  } else if (month === 9) {
+    return -1;
+  }
+}
+
 /**
  * Get timezone offset from current date and time.
  * Sets SUMMER flag for SNAP prices.
@@ -58,6 +100,10 @@ function getTimezoneOffsetInSeconds() {
       offset = hour * 3600 + minute * 60 * sign;
       break;
     }
+  }
+  // add/subtract 1h if next day is the day of the time change
+  if (DST) {
+    offset += isLastSundayInMarchOrOctober(now) * 3600;
   }
   return offset;
 }

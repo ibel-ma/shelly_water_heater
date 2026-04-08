@@ -69,22 +69,23 @@ At the top of the script, the following constants can be adjusted:
 | `period` | `3` | Number of cheapest consecutive hours to find |
 | `defaultstart` | `"0 1 9 * * ..."` | Fallback ON time if API fetch fails (crontab) |
 | `defaultend` | `"0 1 11 * * ..."` | Fallback OFF time if API fetch fails (crontab) |
-| `max_avg_price` | `999999` | Maximum average price (EUR/MWh) to allow switch-on. Set lower to prevent running when prices are very high. |
-| `NNEG` | `51.7` | Grid cost per €/MWh |
-| `SNAP` | `41.4` | Reduced grid cost in €/MWh.The reduced price is valid from 10 to 16 o'clock, from April to including September. |
+| `max_avg_price` | `999999` | Maximum average price (Eur/MWh) to allow switch-on. Set lower to prevent running when prices are very high. |
+| `NNEG` | `51.7` | Grid cost per Eur/MWh |
+| `SNAP` | `41.4` | Reduced grid cost in Eur/MWh.The reduced price is valid from 10 to 16 o'clock, from April to including September. |
 | `PVP` | `0.0001` | PV production in MWh |
-| `SUMMER` | `false` | initial flag, will be set in `getTimezoneOffsetInSeconds()` |
+| `SUMMER` | `false` | flag will be set in `getTimezoneOffsetInSeconds()` |
+| `DST` | `true` | flag to activate check for time change |
 
 ### Price Units
 
-The `max_avg_price` is in **EUR per MWh**, excluding taxes.  
+The `max_avg_price` is in **Eur per MWh**, excluding taxes.  
 Example: if you want to cap at 10 ct/kWh → use `100`.
 
 ---
 
 ## Timezone & Daylight Saving Time
 
-The `Date()` returns timestamps. The `getTimezoneOffsetInSeconds` function gets the timestamp converts it to a string and reads the **timezone offset** and converts it to seconds.
+The `Date()` returns timestamps. The `getTimezoneOffsetInSeconds` function gets the timestamp converts it to a string and reads the **timezone offset** and converts it to seconds. The function `isLastSundayInMarchOrOctober` checks if next day is time change and adjusts offset accordingly.
 
 ```javascript
 const now = new Date();
@@ -107,6 +108,11 @@ for (let i = 0; i < str.length; i++) {
         break;
     }
 }
+// add/subtract 1h if next day is the day of the time change
+if (DST) {
+offset += isLastSundayInMarchOrOctober(now) * 3600;
+}
+return offset
 ```
 
 This means DST is handled **automatically**, as long as the Shelly's timezone is set correctly in its settings. No manual adjustment is needed when clocks change. Because the script sets the timers for the next day there is a offset of one hour at the day of the time change.

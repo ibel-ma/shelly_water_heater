@@ -4,6 +4,9 @@
  * mJS script that fetches hourly electricity prices from aWATTar API, finds the cheapest time period, and sets Shelly schedules to turn on the heater during that period.
  */
 
+
+// --- CONSTANTS ---
+
 const url = "https://api.awattar.at/v1/marketdata";
 const period = 3;
 const defaultstart = "0 1 12 * * SUN,MON,TUE,WED,THU,FRI,SAT";
@@ -13,6 +16,7 @@ const NNEG = 51.7;
 const SNAP = 41.4;
 const PVP = 0.0001; // PV production in MWh
 let SUMMER = false; // initialization, will be set in getTimezoneOffsetInSeconds()
+const DST = true;   // flag to activate check for time change
 
 // Random schedule around 18:00
 let minrand = JSON.stringify(Math.floor(Math.random() * 15));
@@ -32,6 +36,46 @@ console.log("=== SNAP SUMMER: ", SUMMER, " ===");
 // --- FUNCTIONS ---
 
 /**
+ * Calculates next day and checks if it is the last Sunday of March or October
+ * Returns +1 for last Sunday of March. Return -1 for last Sunday of October.
+ * Returns 0 for every other date.
+ * 
+ * @returns {number}  +1, 0, -1
+ */
+function isLastSundayInMarchOrOctober(date) {
+  // next day
+  const year = date.getFullYear();
+  const month = date.getMonth();  // 0 = Jan, 2 = March, 9 = October
+  const day = date.getDate()+1;   // next day
+
+  // Only March or October are relevant
+  if (month !== 2 && month !== 9) {
+    return 0;
+  }
+
+  // Get the last day of the month
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+
+  // Move back to the last Sunday
+  const lastSunday = new Date(year, month, (lastDayOfMonth.getDate() - lastDayOfMonth.getDay()));
+
+  // Compare calendar dates (ignore time)
+  if (
+        !(year === lastSunday.getFullYear() &&
+          month === lastSunday.getMonth() &&
+          day === lastSunday.getDate())
+  ) { 
+    return 0;
+  }
+  console.log("=== Tomorrow is time change ===")
+  if (month === 2) {
+    return +1;
+  } else if (month === 9) {
+    return -1;
+  }
+}
+
+/**
  * Get timezone offset from current date and time.
  * Sets SUMMER flag for SNAP prices.
  * @returns {offset} timezone offset in seconds.
@@ -39,6 +83,8 @@ console.log("=== SNAP SUMMER: ", SUMMER, " ===");
 function getTimezoneOffsetInSeconds() {
   // get current date and time
   const now = new Date();
+  // get next day
+  now.setDate(now.getDate()+1); // does not work on shelly hardware, "function setDate() unkown"
   const str = now.toString();
 
   // check month for SNAP
@@ -58,6 +104,12 @@ function getTimezoneOffsetInSeconds() {
       break;
     }
   }
+
+  // add/subtract 1h if next day is the day of the time change
+  if (DST) {
+    offset += isLastSundayInMarchOrOctober(now) * 3600;
+  }
+
   return offset;
 }
 
