@@ -52,13 +52,10 @@ function isLastSundayInMarchOrOctober(date) {
   if (month !== 2 && month !== 9) {
     return 0;
   }
-
   // Get the last day of the month
   const lastDayOfMonth = new Date(year, month + 1, 0);
-
   // Move back to the last Sunday
   const lastSunday = new Date(year, month, (lastDayOfMonth.getDate() - lastDayOfMonth.getDay()));
-
   // Compare calendar dates (ignore time)
   if (
         !(year === lastSunday.getFullYear() &&
@@ -180,8 +177,8 @@ function printArray(rows) {
     console.log("\n=== hourly_prices (table view) ===\n");
     console.table(Object.entries(rows).map(([k,v]) => ({
         Hour: v.cet_hour,
-        marketprice: v.marketprice,
-        marketprice_raw: v.marketprice_raw
+        marketprice: v.marketprice_raw,
+        marketprice_snap: parseFloat(v.marketprice.toFixed(2)) // number: parseFloat(string: number.toFixed())
     })));
 }
 
