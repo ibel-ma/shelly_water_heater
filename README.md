@@ -121,7 +121,7 @@ This means DST is handled **automatically**, as long as the Shelly's timezone is
 
 ## Fallback Behavior
 
-If the API request fails (network error, timeout, or non-200 response), the script falls back to the default schedule defined by `defaultstart` and `defaultend`. This ensures the device still runs at a reasonable time even without internet access.
+If the API request fails (network error, timeout, or no response), the script falls back to the default schedule defined by `defaultstart` and `defaultend`. This ensures the device still runs at a reasonable time even without internet access.
 
 ---
 
@@ -212,3 +212,7 @@ The script prints status messages to the console at each step:
 ```
 
 If the output stops after `=== Fetching current price ===`, the HTTP request is not completing — check network connectivity and that the aWATTar API is reachable from the device.
+
+### "water_heater_debuging.js"
+
+"water_heater_debugging.js" is an atlered version of the script that is executable in node.js. This should help with debugging outside of the scripting environment of the shelly web interface.
