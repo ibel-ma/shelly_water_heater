@@ -215,4 +215,4 @@ If the output stops after `=== Fetching current price ===`, the HTTP request is 
 
 ### "water_heater_debuging.js"
 
-"water_heater_debugging.js" is an atlered version of the script that is executable in node.js. This should help with debugging outside of the scripting environment of the shelly web interface.
+"water_heater_debugging.js" is an altered version of the script that is executable in node.js. This should help with debugging outside of the scripting environment of the shelly web interface.
